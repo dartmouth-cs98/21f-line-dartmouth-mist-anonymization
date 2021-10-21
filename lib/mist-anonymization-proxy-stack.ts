@@ -17,7 +17,7 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(2),
       runtime: lambda.Runtime.NODEJS_14_X,
       handler: 'main',
-      entry: path.join(__dirname, './handler.ts')
+      entry: path.join(__dirname, '/../src/handler.ts')
     });
 
     this.api = new gateway.RestApi(this, 'api', {
