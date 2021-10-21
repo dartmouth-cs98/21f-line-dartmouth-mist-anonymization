@@ -25,7 +25,7 @@ export const main = async (
 
     return;
   }
-  
+
   // get environment variables to rotate
   const toRotate = Object.keys(environment.Variables).filter(
     key => /^MIST_[A-Z_]+_ROTATING_KEY$/gm.test(key)
@@ -34,7 +34,7 @@ export const main = async (
   // generate new key values
   const newKeys = toRotate.reduce((keys, key) => {
     Object.assign(keys, { [key]: uuidv4() });
-    return key;
+    return keys;
   }, {});
 
   // compile new environment variables

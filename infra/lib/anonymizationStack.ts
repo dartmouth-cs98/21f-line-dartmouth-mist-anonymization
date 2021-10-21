@@ -1,6 +1,7 @@
 import * as path from 'path';
 
 import * as cdk from '@aws-cdk/core';
+import * as iam from '@aws-cdk/aws-iam';
 import * as gateway from '@aws-cdk/aws-apigateway';
 import * as lambda from '@aws-cdk/aws-lambda';
 import * as events from '@aws-cdk/aws-events';
@@ -24,7 +25,7 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(2),
       runtime: lambda.Runtime.NODEJS_14_X,
       handler: 'main',
-      entry: path.join(__dirname, '/../../src/proxy.ts')
+      entry: path.join(__dirname, '/../../src/proxy.ts'),
     });
 
     // * gateway
@@ -45,6 +46,20 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
 
     // * rotator
 
+    // create proxy lambda role
+    const role = new iam.Role(this, 'rotator-role', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com')
+    });
+
+    // give permission to manage proxy lambda
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: [
+        'lambda:GetFunctionConfiguration',
+        'lambda:UpdateFunctionConfiguration'
+      ],
+      resources: [this.proxy.functionArn]
+    }));
+
     // create rotation lambda
     this.rotator = new NodejsFunction(this, 'rotator', {
       functionName: 'mist-dwell-proxy-rotator',
@@ -55,7 +70,8 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
       entry: path.join(__dirname, '/../../src/rotator.ts'),
       environment: {
         'PROXY_FUNCTION_NAME': this.proxy.functionName
-      }
+      },
+      role
     });
 
     // * cron
