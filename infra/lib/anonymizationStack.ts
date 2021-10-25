@@ -6,12 +6,14 @@ import * as gateway from '@aws-cdk/aws-apigateway';
 import * as lambda from '@aws-cdk/aws-lambda';
 import * as events from '@aws-cdk/aws-events';
 import * as targets from '@aws-cdk/aws-events-targets';
+import * as sns from '@aws-cdk/aws-sns';
 import { NodejsFunction } from '@aws-cdk/aws-lambda-nodejs';
 
 export class MistAnonymizationProxyStack extends cdk.Stack {
   proxy: NodejsFunction;
   rotator: NodejsFunction;
   api: gateway.RestApi;
+  topic: sns.Topic;
 
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -84,5 +86,13 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
 
     // set cron target
     rule.addTarget(new targets.LambdaFunction(this.rotator));
+
+    // * sns
+
+    // this topic does NOT enforce deduplication
+    this.topic = new sns.Topic(this, 'topic', {
+      topicName: 'mist-dwell-proxy-topic',
+      displayName: 'Mist Dwell Proxy Topic',
+    });
   }
 }
