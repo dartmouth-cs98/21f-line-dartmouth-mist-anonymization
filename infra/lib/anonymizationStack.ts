@@ -18,16 +18,47 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // * sns
+
+    // this topic does NOT enforce deduplication
+    this.topic = new sns.Topic(this, 'topic', {
+      topicName: 'mist-dwell-proxy-topic',
+      displayName: 'Mist Dwell Proxy Topic',
+    });
+
     // * proxy
+
+    // create proxy lambda role
+    const proxyRole = new iam.Role(this, 'proxy-role', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          'service-role/AWSLambdaBasicExecutionRole'
+        ),
+      ]
+    });
+
+    // allow sns publish on topic
+    proxyRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'sns:Publish'
+      ],
+      resources: [this.topic.topicArn]
+    }));
 
     // create proxy lambda
     this.proxy = new NodejsFunction(this, 'proxy', {
       functionName: 'mist-dwell-proxy-lambda',
       memorySize: 128,
-      timeout: cdk.Duration.seconds(2),
+      timeout: cdk.Duration.seconds(30),
       runtime: lambda.Runtime.NODEJS_14_X,
       handler: 'main',
       entry: path.join(__dirname, '/../../src/proxy.ts'),
+      environment: {
+        TOPIC_ARN: this.topic.topicArn
+      },
+      role: proxyRole
     });
 
     // * gateway
@@ -48,13 +79,18 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
 
     // * rotator
 
-    // create proxy lambda role
-    const role = new iam.Role(this, 'rotator-role', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com')
+    // create rotator lambda role
+    const rotatorRole = new iam.Role(this, 'rotator-role', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          'service-role/AWSLambdaBasicExecutionRole'
+        ),
+      ]
     });
 
     // give permission to manage proxy lambda
-    role.addToPolicy(new iam.PolicyStatement({
+    rotatorRole.addToPolicy(new iam.PolicyStatement({
       actions: [
         'lambda:GetFunctionConfiguration',
         'lambda:UpdateFunctionConfiguration'
@@ -66,14 +102,14 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
     this.rotator = new NodejsFunction(this, 'rotator', {
       functionName: 'mist-dwell-proxy-rotator',
       memorySize: 128,
-      timeout: cdk.Duration.seconds(2),
+      timeout: cdk.Duration.seconds(5),
       runtime: lambda.Runtime.NODEJS_14_X,
       handler: 'main',
       entry: path.join(__dirname, '/../../src/rotator.ts'),
       environment: {
-        'PROXY_FUNCTION_NAME': this.proxy.functionName
+        PROXY_FUNCTION_NAME: this.proxy.functionName
       },
-      role
+      role: rotatorRole
     });
 
     // * cron
@@ -82,17 +118,9 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
     const rule = new events.Rule(this, 'daily-rotation', {
       ruleName: 'mist-dwell-proxy-daily-rotation',
       schedule: events.Schedule.expression('cron(0 9 * * ? *)')
-    })
+    });
 
     // set cron target
     rule.addTarget(new targets.LambdaFunction(this.rotator));
-
-    // * sns
-
-    // this topic does NOT enforce deduplication
-    this.topic = new sns.Topic(this, 'topic', {
-      topicName: 'mist-dwell-proxy-topic',
-      displayName: 'Mist Dwell Proxy Topic',
-    });
   }
 }
