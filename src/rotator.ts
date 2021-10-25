@@ -19,9 +19,10 @@ export const main = async (
   const { Environment: environment } =
     await client.send(getConfigurationCommand);
 
-  // if no environment variables set, set alert
+  // if no environment variables set, log error
   if (!environment?.Variables) {
-    // TODO - cloudwatch alert
+    console.error('No environment variables found in function \
+      configuration, this could indicate a problem.');
 
     return;
   }
@@ -55,6 +56,6 @@ export const main = async (
 
   // verify update
   if (newEnvironment?.Variables == newEnvironmentVariables) {
-    // TODO - log success in cloudwatch (alarm if no recent success?)
+    console.log('Proxy keys successfully rotated.')
   }
 };
