@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as dotenv from 'dotenv';
 
 import * as cdk from '@aws-cdk/core';
 import * as iam from '@aws-cdk/aws-iam';
@@ -8,6 +9,8 @@ import * as events from '@aws-cdk/aws-events';
 import * as targets from '@aws-cdk/aws-events-targets';
 import * as sns from '@aws-cdk/aws-sns';
 import { NodejsFunction } from '@aws-cdk/aws-lambda-nodejs';
+
+const { parsed } = dotenv.config();
 
 export class MistAnonymizationProxyStack extends cdk.Stack {
   proxy: NodejsFunction;
@@ -19,7 +22,6 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
     super(scope, id, props);
 
     // * sns
-
     // this topic does NOT enforce deduplication
     this.topic = new sns.Topic(this, 'topic', {
       topicName: 'mist-dwell-proxy-topic',
@@ -27,7 +29,6 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
     });
 
     // * proxy
-
     // create proxy lambda role
     const proxyRole = new iam.Role(this, 'proxy-role', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
@@ -56,13 +57,13 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
       handler: 'main',
       entry: path.join(__dirname, '/../../src/proxy.ts'),
       environment: {
-        TOPIC_ARN: this.topic.topicArn
+        TOPIC_ARN: this.topic.topicArn,
+        ...parsed // destructure env vars
       },
       role: proxyRole
     });
 
     // * gateway
-
     // create api gateway
     this.api = new gateway.RestApi(this, 'api', {
       restApiName: 'mist-dwell-proxy-api',
@@ -78,7 +79,6 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
     this.api.root.addMethod('POST', proxyIntegration);
 
     // * rotator
-
     // create rotator lambda role
     const rotatorRole = new iam.Role(this, 'rotator-role', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
@@ -113,7 +113,6 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
     });
 
     // * cron
-
     // create scheduling rule (run every day at 4 am)
     const rule = new events.Rule(this, 'daily-rotation', {
       ruleName: 'mist-dwell-proxy-daily-rotation',

@@ -30,7 +30,36 @@ type ZoneEvent = {
     mac?: string;
     /** string uuid of named asset */
     asset_id?: string;
-  }]
+  }];
+}
+
+type AnonymizedEvent = {
+  site_id: string;
+  map_id: string;
+  zone_id: string;
+  trigger: 'enter' | 'exit';
+  timestamp: number;
+  type: 'sdk' | 'wifi' | 'asset';
+  id: string;
+}
+
+const signaturesEqual = (a: string, b: string) => {
+  // create buffers
+  const aBuffer = Buffer.from(a);
+  const bBuffer = Buffer.from(b);
+
+  // compare length (fine for this not to be timing safe,
+  // as signatures are always 256 bits).
+  if (aBuffer.length !== bBuffer.length) {
+    return false;
+  }
+
+  // timing safe compare
+  if (!crypto.timingSafeEqual(aBuffer, bBuffer)) {
+    return false;
+  }
+
+  return true;
 }
 
 export const main = async (
@@ -51,54 +80,69 @@ export const main = async (
     };
   }
 
-  // * parse body
-  const zoneEvent: ZoneEvent = JSON.parse(body);
-
   // * verify signature
+  // generate expected signature
   const expectedSignature = crypto
     .createHmac('sha256', process.env.MIST_SECRET!)
     .update(body)
     .digest('hex');
 
   // return if signature does not match
-  if (!crypto.timingSafeEqual(Buffer.from(signature),
-    Buffer.from(expectedSignature))) {
+  if (!signaturesEqual(signature, expectedSignature)) {
     return {
       body: JSON.stringify({
         message: 'The request signature is invalid.'
       }),
-      statusCode: 400
+      statusCode: 500
     };
   }
 
+  // * parse body
+  const zoneEvent: ZoneEvent = JSON.parse(body);
+
   // * process event
   // hash mac addresses to anonymize
-  for (let i = 0; i < zoneEvent.events.length; i++) {
-    const identifier = zoneEvent.events[i].mac || zoneEvent.events[i].id;
+  const processedEvents = zoneEvent.events.map(rawEvent => {
+    const identifier = rawEvent.mac || rawEvent.id;
+    const zoneId = rawEvent.zone_id;
+    const zoneSeed = process.env[`MIST_${
+      zoneId
+        .toUpperCase()
+        .replace(/-/g, '')
+    }_ROTATING_KEY`];
+
+    // do not include event if no zone seed is set in environment
+    if (!zoneSeed) return null;
+
+    // hash identifier
     const hash = crypto
-      .createHash('sha256')
+      .createHmac('sha256', zoneSeed)
       .update(identifier!) // one of mac or id is always defined
       .digest('hex');
 
-    // overwrite id with hash
-    zoneEvent.events[i].id = hash;
-
-    // remove other identifiers
-    delete zoneEvent.events[i].mac;
-    delete zoneEvent.events[i].asset_id;
-    delete zoneEvent.events[i].name;
-  }
+    // return anonymized event, reconstruct so as not to unintentially
+    // include unexpected identifiable fields.
+    return {
+      site_id: rawEvent.site_id,
+      map_id: rawEvent.map_id,
+      zone_id: rawEvent.zone_id,
+      trigger: rawEvent.trigger,
+      timestamp: rawEvent.timestamp,
+      type: rawEvent.type,
+      id: hash,
+    } as AnonymizedEvent
+  }).filter(event => event !== null);
 
   // * publish to sns
   // create client
   const snsClient = new SNSClient({});
 
   // loop through all messages, sns does not support batch publishing
-  const ops = zoneEvent.events.map(event => {
+  const ops = processedEvents.map(processedEvent => {
     // create publish command
     const publishCommand = new PublishCommand({
       TopicArn: process.env.TOPIC_ARN!,
-      Message: JSON.stringify(event)
+      Message: JSON.stringify(processedEvent)
     });
 
     // publish
@@ -110,14 +154,14 @@ export const main = async (
   const failures = results.filter(r => r.status === 'rejected');
   failures.forEach(failure => {
     console.error('Failed to publish message:', failure);
-  })
+  });
 
   // * return success
   return {
     body: JSON.stringify({
-      message: `Successfully processed ${zoneEvent.events.length
-        - failures.length}/${zoneEvent.events.length} event(s).`
+      message: `Successfully processed ${processedEvents.length
+        - failures.length}/${processedEvents.length} event(s).`
     }),
-    statusCode: 200,
+    statusCode: 200
   };
 };

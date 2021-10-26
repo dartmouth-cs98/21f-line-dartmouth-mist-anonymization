@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 export const main = async (
   _event: EventBridgeEvent<any, any>
 ) => {
+  // * get lambda function configuration
   // get lambda client
   const client = new LambdaClient({});
 
@@ -27,17 +28,20 @@ export const main = async (
     return;
   }
 
+  // * get environment variables to rotate
   // get environment variables to rotate
   const toRotate = Object.keys(environment.Variables).filter(
     key => /^MIST_[A-Z_]+_ROTATING_KEY$/gm.test(key)
   );
 
+  // * regenerate environment variables
   // generate new key values
   const newKeys = toRotate.reduce((keys, key) => {
     Object.assign(keys, { [key]: uuidv4() });
     return keys;
   }, {});
 
+  // * update configuration
   // compile new environment variables
   const newEnvironmentVariables = {
     ...environment.Variables,
@@ -54,6 +58,7 @@ export const main = async (
   const { Environment: newEnvironment } =
     await client.send(updateConfigurationCommand);
 
+  // * verify success
   // verify update
   if (newEnvironment?.Variables == newEnvironmentVariables) {
     console.log('Proxy keys successfully rotated.')
