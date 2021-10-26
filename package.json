@@ -5,7 +5,6 @@
     "mist-anonymization-proxy": "bin/mist-anonymization-proxy.js"
   },
   "scripts": {
-    "test": "jest",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap",
     "deploy": "rm -rf cdk.out && cdk synth && cdk deploy"
@@ -16,12 +15,9 @@
   "devDependencies": {
     "@aws-cdk/assert": "1.127.0",
     "@types/aws-lambda": "^8.10.84",
-    "@types/jest": "^26.0.10",
     "@types/node": "10.17.27",
     "@types/source-map-support": "^0.5.4",
     "aws-cdk": "1.127.0",
-    "jest": "^26.4.2",
-    "ts-jest": "^26.2.0",
     "ts-node": "^9.0.0",
     "typescript": "~3.9.7"
   },
@@ -41,6 +37,7 @@
     "uuid": "^8.3.2"
   },
   "resolutions": {
-    "esbuild": "^0.13.8"
+    "esbuild": "^0.13.8",
+    "set-value": "^4.0.1"
   }
 }
