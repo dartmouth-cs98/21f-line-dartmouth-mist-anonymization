@@ -72,19 +72,21 @@ export const main = async (
   }
 
   // * process event
-  // filter wifi events
-  const wifiEvents = zoneEvent.events.filter(e => e.type === 'wifi');
-
   // hash mac addresses to anonymize
-  for (let i = 0; i < wifiEvents.length; i++) {
-    const mac = wifiEvents[i].mac;
+  for (let i = 0; i < zoneEvent.events.length; i++) {
+    const identifier = zoneEvent.events[i].mac || zoneEvent.events[i].id;
     const hash = crypto
       .createHash('sha256')
-      .update(mac!) // always defined on wifi events
+      .update(identifier!) // one of mac or id is always defined
       .digest('hex');
 
-    // overwrite mac address with hash
-    wifiEvents[i].mac = hash;
+    // overwrite id with hash
+    zoneEvent.events[i].id = hash;
+
+    // remove other identifiers
+    delete zoneEvent.events[i].mac;
+    delete zoneEvent.events[i].asset_id;
+    delete zoneEvent.events[i].name;
   }
 
   // * publish to sns
@@ -92,12 +94,11 @@ export const main = async (
   const snsClient = new SNSClient({});
 
   // loop through all messages, sns does not support batch publishing
-  const ops = wifiEvents.map(event => {
+  const ops = zoneEvent.events.map(event => {
     // create publish command
     const publishCommand = new PublishCommand({
       TopicArn: process.env.TOPIC_ARN!,
-      Message: JSON.stringify(event),
-      
+      Message: JSON.stringify(event)
     });
 
     // publish
@@ -114,7 +115,8 @@ export const main = async (
   // * return success
   return {
     body: JSON.stringify({
-      message: `Processed ${wifiEvents.length} event(s).`
+      message: `Successfully processed ${zoneEvent.events.length
+        - failures.length}/${zoneEvent.events.length} event(s).`
     }),
     statusCode: 200,
   };
