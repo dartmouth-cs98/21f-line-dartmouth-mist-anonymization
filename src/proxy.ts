@@ -130,7 +130,7 @@ export const main = async (
       type: rawEvent.type,
       id: hash,
     } as AnonymizedEvent
-  }).filter(event => event !== null);
+  }).filter(event => event !== null) as AnonymizedEvent[];
 
   // * publish to sns
   // create client
@@ -141,7 +141,29 @@ export const main = async (
     // create publish command
     const publishCommand = new PublishCommand({
       TopicArn: process.env.TOPIC_ARN!,
-      Message: JSON.stringify(processedEvent)
+      Message: JSON.stringify(processedEvent),
+      MessageAttributes: {
+        'site_id': {
+          DataType: 'String',
+          StringValue: processedEvent.site_id
+        },
+        'map_id': {
+          DataType: 'String',
+          StringValue: processedEvent.map_id
+        },
+        'zone_id': {
+          DataType: 'String',
+          StringValue: processedEvent.zone_id
+        },
+        'trigger': {
+          DataType: 'String',
+          StringValue: processedEvent.trigger
+        },
+        'type': {
+          DataType: 'String',
+          StringValue: processedEvent.type
+        }
+      }
     });
 
     // publish
