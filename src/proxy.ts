@@ -71,6 +71,7 @@ export const main = async (
 
   // return if missing body or signature
   if (!body || !signature) {
+    console.log('The request signature and/or body is missing.');
     return {
       body: JSON.stringify({
         message: 'The request signature and/or body is missing.'
@@ -88,6 +89,7 @@ export const main = async (
 
   // return if signature does not match
   if (!signaturesEqual(signature, expectedSignature)) {
+    console.log('The request signature is invalid.');
     return {
       body: JSON.stringify({
         message: 'The request signature is invalid.'
@@ -178,6 +180,8 @@ export const main = async (
   });
 
   // * return success
+  console.log(`Successfully processed ${processedEvents.length
+    - failures.length}/${processedEvents.length} event(s).`);
   return {
     body: JSON.stringify({
       message: `Successfully processed ${processedEvents.length
