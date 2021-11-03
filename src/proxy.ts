@@ -67,7 +67,8 @@ export const main = async (
 ): Promise<APIGatewayProxyResultV2> => {
   // * parse event
   const { body } = event;
-  const signature = event.headers['X-Mist-Signature-v2'];
+  // mist lowercases this field
+  const signature = event.headers['x-mist-signature-v2'];
 
   // return if missing body or signature
   if (!body || !signature) {
