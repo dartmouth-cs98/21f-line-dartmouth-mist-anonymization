@@ -59,8 +59,12 @@ export const main = async (
     await client.send(updateConfigurationCommand);
 
   // * verify success
-  // verify update
-  if (newEnvironment?.Variables == newEnvironmentVariables) {
+  // verify update (stringify is okay here, shallow compare 
+  // that should be consistently ordered)
+  if (JSON.stringify(newEnvironment?.Variables)
+    == JSON.stringify(newEnvironmentVariables)) {
     console.log('Proxy keys successfully rotated.')
+  } else {
+    console.error('Proxy keys failed to rotate.');
   }
 };
