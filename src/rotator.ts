@@ -31,7 +31,7 @@ export const main = async (
   // * get environment variables to rotate
   // get environment variables to rotate
   const toRotate = Object.keys(environment.Variables).filter(
-    key => /^MIST_[A-Z_]+_ROTATING_KEY$/gm.test(key)
+    key => /^MIST_[A-Z0-9]+_ROTATING_KEY$/gm.test(key)
   );
 
   // * regenerate environment variables
