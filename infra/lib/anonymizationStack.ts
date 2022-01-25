@@ -22,10 +22,12 @@ export class MistAnonymizationProxyStack extends cdk.Stack {
     super(scope, id, props);
 
     // * sns
-    // this topic does NOT enforce deduplication
+    // this topic preserves ordering and deduplicates messages based on content
     this.topic = new sns.Topic(this, 'topic', {
-      topicName: 'mist-dwell-proxy-topic',
+      topicName: 'mist-dwell-proxy-topic.fifo',
       displayName: 'Mist Dwell Proxy Topic',
+      fifo: true,
+      contentBasedDeduplication: true
     });
 
     // * proxy
