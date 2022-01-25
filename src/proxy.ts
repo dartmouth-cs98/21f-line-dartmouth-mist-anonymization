@@ -166,7 +166,8 @@ export const main = async (
           DataType: 'String',
           StringValue: processedEvent.type
         }
-      }
+      },
+      MessageGroupId: processedEvent.zone_id
     });
 
     // publish
